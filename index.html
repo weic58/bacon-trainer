@@ -176,7 +176,7 @@ const $ = id => document.getElementById(id);
 const HAND_GRIP_X = 35;
 const HAND_GRIP_Y = 60;
 const BASE_PAN_W = 190;
-const BASE_PAN_H = 24;
+const BASE_PAN_H = 22;
 
 let W=0,H=0,CW=0,CH=0,playX=0,dpr=1;
 let settings={}, pans=[], bacon=null, cameraY=0, bestY=0, started=false, frame=0, activePanIndex=0;
@@ -393,49 +393,87 @@ function constrainBacon(){
   }
 }
 function panAngle(p){ return p.side*(settings.restAngle+(settings.liftAngle-settings.restAngle)*p.lift); }
-function localToWorld(p, angle, lx, ly){
+function panJoint(p){
+  const joint = 18 * settings.panScale;
+  return {
+    x: p.x + p.side * (p.w / 2 + joint),
+    y: p.y
+  };
+}
+function panLocalGeometry(p){
+  const joint = 18 * settings.panScale;
+  const thickness = p.h * 1.05;
+  return {
+    joint,
+    dishCx: -p.side * (p.w / 2 + joint),
+    topY: -thickness / 2,
+    bottomY: thickness / 2
+  };
+}
+function localToWorldFromJoint(joint, angle, lx, ly){
   const c=Math.cos(angle), s=Math.sin(angle);
-  return {x:p.x + lx*c - ly*s, y:p.y + lx*s + ly*c};
+  return {x:joint.x + lx*c - ly*s, y:joint.y + lx*s + ly*c};
+}
+function worldToLocalFromJoint(joint, angle, x, y){
+  const dx=x-joint.x, dy=y-joint.y;
+  const ca=Math.cos(-angle), sa=Math.sin(-angle);
+  return {x:dx*ca-dy*sa, y:dx*sa+dy*ca};
 }
 function collidePans(applyImpulse=true){
   if(!bacon) return;
 
   for(let pi=0; pi<pans.length; pi++){
-    const p=pans[pi], angle=panAngle(p), ca=Math.cos(-angle), sa=Math.sin(-angle);
-    const topY = -p.h*0.50;
-    const bottomY = p.h*0.50;
+    const p=pans[pi];
+    const angle=panAngle(p);
+    const joint=panJoint(p);
+    const g=panLocalGeometry(p);
+    const leftX = g.dishCx - p.w/2;
+    const rightX = g.dishCx + p.w/2;
     const topHits=[];
 
     for(const s of bacon.segs){
-      const dx=s.x-p.x, dy=s.y-p.y;
-      const lx=dx*ca-dy*sa, ly=dx*sa+dy*ca;
-      const pdx=s.px-p.x, pdy=s.py-p.y;
-      const plx=pdx*ca-pdy*sa, ply=pdx*sa+pdy*ca;
-      const inX = lx>-p.w/2 && lx<p.w/2;
-      const insideBody = inX && ly>topY && ly<bottomY;
+      const loc = worldToLocalFromJoint(joint, angle, s.x, s.y);
+      const prev = worldToLocalFromJoint(joint, angle, s.px, s.py);
+      const inX = loc.x > leftX && loc.x < rightX;
+      const insideBody = inX && loc.y > g.topY && loc.y < g.bottomY;
       if(!insideBody) continue;
 
-      const localVy = ly - ply;
-      const cameFromBelow = ply >= bottomY - 1 || (ly > 0 && localVy < -0.15);
-      const cameFromAbove = ply <= topY + 1 || !cameFromBelow;
+      const vLocalX = loc.x - prev.x;
+      const vLocalY = loc.y - prev.y;
+      const cameFromBelow = prev.y >= g.bottomY - 1 || (loc.y > 0 && vLocalY < -0.12);
 
       if(cameFromBelow){
-        const next = localToWorld(p, angle, lx, bottomY + 1.6);
-        const bounce = Math.min(9, Math.abs(localVy)*0.35 + 1.25);
-        const prev = localToWorld(p, angle, plx, bottomY + 1.6 - bounce);
+        // 撞到鍋底：推回下方，保留一點水平速度，並把向上速度反彈成向下。
+        const newY = g.bottomY + 1.4;
+        const bounceVY = Math.min(8, Math.abs(vLocalY) * 0.32 + 0.9);
+        const slideVX = vLocalX * 0.72;
+        const next = localToWorldFromJoint(joint, angle, loc.x, newY);
+        const prevWorld = localToWorldFromJoint(joint, angle, loc.x - slideVX, newY - bounceVY);
         s.x = next.x;
         s.y = next.y;
-        s.px = prev.x;
-        s.py = prev.y;
+        s.px = prevWorld.x;
+        s.py = prevWorld.y;
         continue;
       }
 
-      if(cameFromAbove){
-        const next = localToWorld(p, angle, lx, topY - 0.9);
-        s.x = next.x;
-        s.y = next.y;
-        topHits.push(s);
+      // 撞到鍋面上方：只修正到鍋面，不直接亂彈。
+      const newY = g.topY - 0.9;
+      const gravityAlongPan = settings.gravity * Math.sin(angle);
+      let slideVX = vLocalX * 0.985 + gravityAlongPan * 0.42;
+
+      // 靜止在鍋上時給一點沿斜面的滑動，避免像黏住。
+      if(Math.abs(slideVX) < 0.08 && Math.abs(angle) > 0.03){
+        slideVX += Math.sign(Math.sin(angle)) * 0.08;
       }
+
+      const normalVY = Math.min(0, vLocalY) * 0.08;
+      const next = localToWorldFromJoint(joint, angle, loc.x, newY);
+      const prevWorld = localToWorldFromJoint(joint, angle, loc.x - slideVX, newY - normalVY);
+      s.x = next.x;
+      s.y = next.y;
+      s.px = prevWorld.x;
+      s.py = prevWorld.y;
+      topHits.push(s);
     }
 
     if(topHits.length>0){
@@ -445,14 +483,16 @@ function collidePans(applyImpulse=true){
 
     if(applyImpulse && topHits.length>0){
       const liftUp = Math.max(0, p.liftVel);
-      const contactScale = Math.min(1, 2.8 / topHits.length);
-      const upwardVel = liftUp * settings.kick * 34 * contactScale;
-      const sideVel = p.side * liftUp * settings.kick * 10 * contactScale;
-      const settle = Math.max(0, p.lift) * 0.16;
+      if(liftUp > 0.002){
+        const contactScale = Math.min(1, 2.4 / topHits.length);
+        const upwardVel = liftUp * settings.kick * 24 * contactScale;
+        const horizontalVel = -p.side * liftUp * settings.kick * 6.5 * contactScale;
 
-      for(const s of topHits){
-        s.py = Math.max(s.py, s.y + upwardVel + settle);
-        s.px += sideVel;
+        for(const s of topHits){
+          // Verlet: 速度 = 現在位置 - 上一幀位置，所以要用「上一幀位置」反向加入速度。
+          s.px -= horizontalVel;
+          s.py += upwardVel;
+        }
       }
     }
   }
@@ -519,56 +559,41 @@ function drawGuideLine(){
     ctx.fill();
   }
 }
-function roundedTrapezoidPath(ctx, topW, bottomW, topY, bottomY, radius){
-  const r = Math.max(0, Math.min(radius, (topW-bottomW)/2, (bottomY-topY)/2));
-  ctx.beginPath();
-  ctx.moveTo(-topW/2 + r, topY);
-  ctx.lineTo(topW/2 - r, topY);
-  ctx.quadraticCurveTo(topW/2, topY, topW/2 - r*0.25, topY + r*0.95);
-  ctx.lineTo(bottomW/2 + r*0.12, bottomY - r*0.95);
-  ctx.quadraticCurveTo(bottomW/2, bottomY, bottomW/2 - r, bottomY);
-  ctx.lineTo(-bottomW/2 + r, bottomY);
-  ctx.quadraticCurveTo(-bottomW/2, bottomY, -bottomW/2 - r*0.12, bottomY - r*0.95);
-  ctx.lineTo(-topW/2 + r*0.25, topY + r*0.95);
-  ctx.quadraticCurveTo(-topW/2, topY, -topW/2 + r, topY);
-  ctx.closePath();
-}
 function drawPan(p){
   const angle=panAngle(p);
+  const joint=panJoint(p);
+  const g=panLocalGeometry(p);
+
   ctx.save();
-  ctx.translate(p.x,p.y);
+  ctx.translate(joint.x,joint.y);
   ctx.rotate(angle);
 
   const topW = p.w;
-  const bottomW = p.w * 0.84;
-  const thickness = p.h * 1.75;
-  const topY = -thickness/2;
-  const bottomY = thickness/2;
-  const neckLen = 34 * settings.panScale;
-  const handleLen = 92 * settings.panScale;
-  const capLen = 16 * settings.panScale;
-  const handleH = 11 * settings.panScale;
-  const handleY = topY + thickness*0.18;
-  const radius = Math.max(8, 16 * settings.panScale);
+  const bottomW = p.w * 0.72;
+  const topY = g.topY;
+  const bottomY = g.bottomY;
+  const handleLen = 122 * settings.panScale;
+  const handleH = 10 * settings.panScale;
+  const handleY = topY + 1 * settings.panScale;
+  const leftX = g.dishCx - topW/2;
+  const rightX = g.dishCx + topW/2;
 
+  // 握把整段金色，並且直接接到鍋身側邊。
+  ctx.fillStyle = '#d6a04a';
   if (p.side === -1) {
-    ctx.fillStyle = '#d6a04a';
-    ctx.fillRect(-topW/2 - neckLen, handleY, neckLen, handleH);
-    ctx.fillStyle = '#303030';
-    ctx.fillRect(-topW/2 - neckLen - handleLen, handleY, handleLen, handleH);
-    ctx.fillStyle = '#d6a04a';
-    ctx.fillRect(-topW/2 - neckLen - handleLen - capLen, handleY, capLen, handleH);
+    ctx.fillRect(leftX - handleLen, handleY, handleLen, handleH);
   } else {
-    ctx.fillStyle = '#d6a04a';
-    ctx.fillRect(topW/2, handleY, neckLen, handleH);
-    ctx.fillStyle = '#303030';
-    ctx.fillRect(topW/2 + neckLen, handleY, handleLen, handleH);
-    ctx.fillStyle = '#d6a04a';
-    ctx.fillRect(topW/2 + neckLen + handleLen, handleY, capLen, handleH);
+    ctx.fillRect(rightX, handleY, handleLen, handleH);
   }
 
+  // 參考圖風格：簡單黑色平面梯形，無圓角、無高光。
   ctx.fillStyle = '#303030';
-  roundedTrapezoidPath(ctx, topW, bottomW, topY, bottomY, radius);
+  ctx.beginPath();
+  ctx.moveTo(g.dishCx - topW/2, topY);
+  ctx.lineTo(g.dishCx + topW/2, topY);
+  ctx.lineTo(g.dishCx + bottomW/2, bottomY);
+  ctx.lineTo(g.dishCx - bottomW/2, bottomY);
+  ctx.closePath();
   ctx.fill();
 
   ctx.restore();
