@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>丟培根模擬器</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f7ded8;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    touch-action: none;
+    cursor: pointer;
+  }
+  .hud {
+    position: fixed;
+    inset: 12px 12px auto 12px;
+    display: flex;
+    justify-content: flex-end;
+    pointer-events: none;
+    color: #7a6d66;
+    z-index: 2;
+  }
+  .scoreCard {
+    min-width: 124px;
+    padding: 9px 13px;
+    border: 3px solid rgba(255,255,255,.86);
+    background: rgba(255,255,255,.62);
+    border-radius: 18px;
+    text-align: center;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 8px 24px rgba(180,120,110,.12);
+  }
+  .scoreCard small { display: block; font-weight: 800; opacity: .52; letter-spacing: .04em; }
+  .scoreCard b { font-size: 31px; line-height: 1.05; font-family: Georgia, serif; color: #8b7970; }
+  .scoreCard span { display: block; font-size: 13px; font-weight: 800; opacity: .62; }
+  .gear {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 0;
+    margin: 0;
+    background: rgba(47,47,47,.92);
+    color: white;
+    font-size: 24px;
+    font-weight: 800;
+    z-index: 6;
+    box-shadow: 0 12px 30px rgba(80,40,40,.22);
+  }
+  .panel {
+    position: fixed;
+    right: 12px;
+    bottom: 72px;
+    width: min(360px, calc(100vw - 24px));
+    max-height: calc(100vh - 96px);
+    overflow: auto;
+    background: rgba(255,255,255,.93);
+    border: 1px solid rgba(255,255,255,.9);
+    border-radius: 18px;
+    padding: 14px;
+    box-shadow: 0 18px 45px rgba(80,40,40,.18);
+    transform: translateY(18px);
+    opacity: 0;
+    pointer-events: none;
+    transition: .18s;
+    z-index: 5;
+  }
+  .panel.open { transform: translateY(0); opacity: 1; pointer-events: auto; }
+  .panel h3 { margin: 0 0 10px; font-size: 16px; color: #554943; user-select: none; }
+  .grid { display: grid; grid-template-columns: 1fr 86px; gap: 8px 10px; align-items: center; font-size: 13px; color: #5c504b; }
+  input { width: 86px; padding: 6px 8px; border: 1px solid #ddc7c0; border-radius: 10px; background: white; }
+  button { border: 0; border-radius: 12px; padding: 10px 12px; background: #2f2f2f; color: white; font-weight: 800; cursor: pointer; }
+  .panel button { margin-top: 10px; width: 100%; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div class="hud">
+  <div class="scoreCard"><small>BEST HEIGHT</small><b id="cm">0.0</b><span>cm</span></div>
+</div>
+<button class="gear" id="gearBtn">⚙</button>
+<div class="panel" id="panel">
+  <h3>後台設定</h3>
+  <div class="grid">
+    <label>左右鍋子水平間距 px</label><input id="gapX" type="number" value="380">
+    <label>每階高度差 px</label><input id="gapY" type="number" value="230">
+    <label>鍋子越來越開倍率</label><input id="spread" type="number" value="18">
+    <label>初始鍋子角度 deg</label><input id="restAngle" type="number" value="-10">
+    <label>抬起最大角度 deg</label><input id="liftAngle" type="number" value="10">
+    <label>抬鍋反應速度</label><input id="panSpeed" type="number" value="0.18" step="0.01">
+    <label>拋起力度</label><input id="kick" type="number" value="6.4" step="0.1">
+    <label>重力</label><input id="gravity" type="number" value="0.28" step="0.01">
+    <label>公分換算 px/cm</label><input id="pxPerCm" type="number" value="13" step="0.5">
+    <label>培根柔軟度</label><input id="softness" type="number" value="0.50" step="0.05">
+  </div>
+  <button id="applyBtn">套用並重新開始</button>
+</div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const $ = id => document.getElementById(id);
+
+let W=0,H=0,CW=0,CH=0,playX=0,dpr=1;
+let settings={}, pans=[], bacon=null, cameraY=0, bestY=0, started=false, frame=0, activePanIndex=0;
+let inputHeld=false;
+let hand = {x:-260,targetX:70,y:0,retract:false};
+
+function readSettings(){
+  settings = {
+    gapX:+$('gapX').value||380,
+    gapY:+$('gapY').value||230,
+    spread:+$('spread').value||18,
+    restAngle:(+$('restAngle').value||-10)*Math.PI/180,
+    liftAngle:(+$('liftAngle').value||10)*Math.PI/180,
+    panSpeed:Math.max(0.03, Math.min(0.45, +$('panSpeed').value||0.18)),
+    kick:+$('kick').value||6.4,
+    gravity:+$('gravity').value||0.28,
+    pxPerCm:+$('pxPerCm').value||13,
+    softness:Math.max(0.15, Math.min(0.95, +$('softness').value||0.50))
+  };
+}
+function resize(){
+  dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  CW = innerWidth; CH = innerHeight;
+  W = Math.min(CW, CH * 9 / 16);
+  H = CH;
+  playX = (CW - W) / 2;
+  canvas.width = CW*dpr;
+  canvas.height = CH*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', resize);
+
+function reset(){
+  readSettings();
+  resize();
+  pans=[]; bacon=null; started=false; cameraY=0; bestY=0; frame=0; activePanIndex=0; inputHeld=false;
+  makePans();
+  placeHandAtPan(0);
+  updateScore();
+}
+function makePans(){
+  const centerX=W*.50, baseY=H*.76;
+  for(let i=0;i<150;i++){
+    const side=i%2===0?-1:1;
+    const open=settings.gapX+i*settings.spread;
+    pans.push({
+      x:centerX+side*open/2,
+      y:baseY-i*settings.gapY,
+      side,
+      lift:0,
+      prevLift:0,
+      liftVel:0,
+      w:218,
+      h:28,
+      hitMemory:0
+    });
+  }
+}
+function placeHandAtPan(i){
+  i = Math.max(0, Math.min(i, pans.length-1));
+  if (pans[i].side === 1 && i > 0) i -= 1;
+  const p=pans[i];
+  activePanIndex=i;
+  hand.targetX=p.x-128;
+  hand.x=hand.targetX-260;
+  hand.y=p.y-158;
+  hand.retract=false;
+}
+function spawnBacon(){
+  const x=hand.x+176, y=hand.y+108;
+  const segs=[]; const n=8; const spacing=13;
+  for(let i=0;i<n;i++){
+    const yy=y+i*spacing;
+    const xx=x+Math.sin(i*.85)*6;
+    segs.push({x:xx,y:yy,px:xx-0.7,py:yy-0.3});
+  }
+  bacon={segs, alive:true};
+  started=true;
+  hand.retract=true;
+}
+function pointerDown(e){
+  inputHeld=true;
+  if(!started) spawnBacon();
+}
+function pointerUp(){ inputHeld=false; }
+canvas.addEventListener('pointerdown', pointerDown);
+window.addEventListener('pointerup', pointerUp);
+window.addEventListener('pointercancel', pointerUp);
+$('gearBtn').onclick = e => { e.stopPropagation(); $('panel').classList.toggle('open'); };
+$('panel').addEventListener('pointerdown', e => e.stopPropagation());
+$('panel').addEventListener('pointerup', e => e.stopPropagation());
+$('applyBtn').onclick = reset;
+
+function update(){
+  frame++;
+  const target=hand.retract?-305:hand.targetX;
+  hand.x+=(target-hand.x)*.075;
+
+  const targetLift=inputHeld?1:0;
+  for(const p of pans){
+    p.prevLift=p.lift;
+    p.lift += (targetLift-p.lift)*settings.panSpeed;
+    p.liftVel = p.lift-p.prevLift;
+    p.hitMemory *= .82;
+  }
+
+  if(bacon){
+    stepBacon();
+    collidePans();
+    constrainBacon();
+    collidePans();
+    const c=getBaconCenter();
+    bestY=Math.min(bestY, c.y-H*.76);
+    const targetCam=Math.min(0, c.y-H*.52);
+    cameraY+=(targetCam-cameraY)*.08;
+    updateScore();
+    if(c.y-cameraY>H+170 || c.x<-260 || c.x>W+260) continueFromCurrentLevel();
+  }
+}
+function stepBacon(){
+  for(const s of bacon.segs){
+    const vx=(s.x-s.px)*.992, vy=(s.y-s.py)*.992;
+    s.px=s.x; s.py=s.y;
+    s.x+=vx;
+    s.y+=vy+settings.gravity;
+  }
+}
+function constrainBacon(){
+  const segs=bacon.segs, rest=13;
+  for(let k=0;k<9;k++){
+    for(let i=0;i<segs.length-1;i++){
+      const a=segs[i], b=segs[i+1];
+      let dx=b.x-a.x, dy=b.y-a.y, d=Math.hypot(dx,dy)||1;
+      const diff=(d-rest)/d*settings.softness;
+      const ox=dx*.5*diff, oy=dy*.5*diff;
+      a.x+=ox; a.y+=oy; b.x-=ox; b.y-=oy;
+    }
+  }
+}
+function panAngle(p){ return p.side*(settings.restAngle+(settings.liftAngle-settings.restAngle)*p.lift); }
+function collidePans(){
+  if(!bacon) return;
+  for(let pi=0; pi<pans.length; pi++){
+    const p=pans[pi], angle=panAngle(p), ca=Math.cos(-angle), sa=Math.sin(-angle);
+    let hitCount=0;
+    for(const s of bacon.segs){
+      const dx=s.x-p.x, dy=s.y-p.y;
+      let lx=dx*ca-dy*sa, ly=dx*sa+dy*ca;
+      if(lx>-p.w/2 && lx<p.w/2 && ly>-22 && ly<15){
+        const pushY = -22 - ly;
+        const wx = -Math.sin(angle)*pushY;
+        const wy =  Math.cos(angle)*pushY;
+        s.x += wx;
+        s.y += wy;
+
+        // 用鍋面角速度給培根動量：快點/快放才會有明顯彈射，長按時只會被托住。
+        const upwardVel = Math.max(0, p.liftVel) * settings.kick * 42;
+        const sideVel = p.side * Math.max(0, p.liftVel) * settings.kick * 16;
+        const settle = Math.max(0, p.lift) * 0.30;
+        s.py = Math.min(s.py, s.y + upwardVel + settle);
+        s.px -= sideVel;
+        hitCount++;
+      }
+    }
+    if(hitCount>0){
+      activePanIndex=Math.max(activePanIndex, pi);
+      p.hitMemory = Math.min(1, p.hitMemory + hitCount*.12);
+    }
+  }
+}
+function getBaconCenter(){
+  let x=0,y=0;
+  for(const s of bacon.segs){x+=s.x;y+=s.y;}
+  return {x:x/bacon.segs.length,y:y/bacon.segs.length};
+}
+function continueFromCurrentLevel(){
+  // 手永遠只從左邊出現；若最後在右邊鍋子掉落，回到前一個左邊鍋子。
+  let idx=activePanIndex;
+  if(pans[idx] && pans[idx].side===1) idx=Math.max(0, idx-1);
+  while(idx>0 && pans[idx].side!==-1) idx--;
+  bacon=null;
+  started=false;
+  inputHeld=false;
+  placeHandAtPan(idx);
+  const targetCam=Math.min(0, pans[idx].y-H*.66);
+  cameraY += (targetCam-cameraY)*.35;
+}
+function updateScore(){ $('cm').textContent=(Math.max(0,-bestY/settings.pxPerCm)).toFixed(1); }
+
+function draw(){
+  ctx.clearRect(0,0,CW,CH);
+  drawBg();
+  ctx.save();
+  ctx.translate(playX,0);
+  ctx.beginPath(); ctx.rect(0,0,W,H); ctx.clip();
+  ctx.translate(0,-cameraY);
+  drawGuideLine();
+  for(const p of pans) if(p.y-cameraY>-160 && p.y-cameraY<H+180) drawPan(p);
+  if(!started) drawHand();
+  if(bacon) drawBacon();
+  ctx.restore();
+  drawPlayAreaShade();
+}
+function drawBg(){
+  const g=ctx.createLinearGradient(0,0,0,CH);
+  g.addColorStop(0,'#f1d2cc');
+  g.addColorStop(.55,'#f8e7e2');
+  g.addColorStop(1,'#fdeee7');
+  ctx.fillStyle=g;
+  ctx.fillRect(0,0,CW,CH);
+  ctx.globalAlpha=.16;
+  for(let i=0;i<13;i++){
+    ctx.fillStyle=i%2?'#fff':'#e9aaa2';
+    ctx.beginPath();
+    ctx.ellipse((i*137+frame*.12)%CW,90+i*70,170,28,-.08,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+function drawPlayAreaShade(){
+  if(playX<=1) return;
+  ctx.fillStyle='rgba(255,255,255,.18)';
+  ctx.fillRect(playX,0,W,H);
+}
+function drawGuideLine(){
+  ctx.fillStyle='rgba(255,255,255,.88)';
+  for(let x=0;x<W;x+=22){ ctx.beginPath(); ctx.arc(x,H*.43,2.6,0,Math.PI*2); ctx.fill(); }
+}
+function drawPan(p){
+  const angle=panAngle(p);
+  ctx.save();
+  ctx.translate(p.x,p.y);
+  ctx.rotate(angle);
+
+  ctx.fillStyle='#d7a24d';
+  ctx.fillRect(p.side===-1?-p.w/2-116:p.w/2-6,-7,122,13);
+
+  const glow = p.hitMemory*.18 + Math.max(0,p.liftVel)*1.4;
+  if(glow>0.01){
+    ctx.globalAlpha=Math.min(.28,glow);
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(0,-24,p.w*.42,12,0,0,Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha=1;
+  }
+
+  ctx.fillStyle='#2f2f2f';
+  ctx.beginPath();
+  ctx.moveTo(-p.w/2,-17);
+  ctx.lineTo(p.w/2,-17);
+  ctx.lineTo(p.w/2-25,17);
+  ctx.lineTo(-p.w/2+22,17);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle='rgba(255,255,255,.10)';
+  ctx.beginPath();
+  ctx.moveTo(-p.w/2+18,-14);
+  ctx.lineTo(p.w/2-18,-14);
+  ctx.lineTo(p.w/2-34,-3);
+  ctx.lineTo(-p.w/2+28,-3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+function drawRoundedRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.roundRect(x,y,w,h,r);
+  ctx.fill();
+}
+function drawHand(){
+  ctx.save();
+  ctx.translate(hand.x,hand.y);
+
+  // sleeve and forearm
+  ctx.fillStyle='#2f2f2f';
+  ctx.save();
+  ctx.rotate(0.03);
+  drawRoundedRect(-86,-10,158,32,10);
+  ctx.restore();
+  ctx.fillStyle='#d7a24d';
+  ctx.fillRect(-112,-7,34,26);
+  ctx.fillStyle='#ffbd98';
+  drawRoundedRect(-76,-3,154,28,13);
+
+  // palm
+  ctx.fillStyle='#ffbd98';
+  ctx.beginPath();
+  ctx.moveTo(62,-8);
+  ctx.quadraticCurveTo(126,-6,142,20);
+  ctx.quadraticCurveTo(148,47,117,59);
+  ctx.quadraticCurveTo(78,69,45,43);
+  ctx.quadraticCurveTo(32,19,62,-8);
+  ctx.fill();
+
+  // thumb
+  ctx.save();
+  ctx.translate(74,36);
+  ctx.rotate(-0.55);
+  ctx.fillStyle='#ffb48e';
+  drawRoundedRect(0,0,26,74,13);
+  ctx.restore();
+
+  // fingers, slightly separated to look like a hand releasing bacon
+  const fingers = [
+    {x:91,y:42,w:22,h:92,r:.10},
+    {x:119,y:39,w:23,h:116,r:.02},
+    {x:149,y:40,w:22,h:106,r:-.10},
+    {x:176,y:44,w:19,h:72,r:-.20}
+  ];
+  for(const f of fingers){
+    ctx.save();
+    ctx.translate(f.x,f.y);
+    ctx.rotate(f.r);
+    ctx.fillStyle='#ffc09d';
+    drawRoundedRect(0,0,f.w,f.h,12);
+    ctx.fillStyle='rgba(205,102,88,.14)';
+    ctx.fillRect(4,f.h-13,f.w-8,3);
+    ctx.restore();
+  }
+
+  // knuckle arcs
+  ctx.strokeStyle='rgba(193,106,88,.22)';
+  ctx.lineWidth=2;
+  for(const k of [96,124,153]){
+    ctx.beginPath();
+    ctx.arc(k,38,9,Math.PI*.12,Math.PI*.85);
+    ctx.stroke();
+  }
+
+  // bacon preview in the hand before release
+  drawHeldBacon(132,126);
+  ctx.restore();
+}
+function drawHeldBacon(x,y){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate(-0.2);
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  for(let strip=0; strip<2; strip++){
+    ctx.lineWidth=7;
+    ctx.strokeStyle=strip?'#f8cab8':'#e77779';
+    ctx.beginPath();
+    for(let i=0;i<6;i++){
+      const px=(strip?7:-7)+Math.sin(i*.9+strip)*4;
+      const py=i*15;
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawBacon(){
+  const segs=bacon.segs;
+  for(let strip=0; strip<2; strip++){
+    ctx.lineWidth=9;
+    ctx.lineCap='round';
+    ctx.lineJoin='round';
+    ctx.strokeStyle=strip?'#f8cab8':'#e77779';
+    ctx.beginPath();
+    for(let i=0;i<segs.length;i++){
+      const s=segs[i];
+      let nx=0, ny=0;
+      if(i<segs.length-1){ const n=segs[i+1]; nx=n.y-s.y; ny=-(n.x-s.x); }
+      else { const n=segs[i-1]; nx=s.y-n.y; ny=-(s.x-n.x); }
+      const l=Math.hypot(nx,ny)||1; nx/=l; ny/=l;
+      const x=s.x+nx*(strip?7:-7), y=s.y+ny*(strip?7:-7);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+}
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+reset();
+loop();
+</script>
+</body>
+</html>
