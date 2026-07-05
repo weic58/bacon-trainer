@@ -21,11 +21,7 @@
     overflow: hidden;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: #f7ded8;
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-touch-callout: none;
-    -webkit-text-size-adjust: 100%;
-    touch-action: manipulation;
+    touch-action: none;
     overscroll-behavior: none;
   }
   canvas {
@@ -34,9 +30,6 @@
     height: 100vh;
     touch-action: none;
     cursor: pointer;
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-touch-callout: none;
   }
   .hud {
     position: fixed;
@@ -87,7 +80,7 @@
     position: fixed;
     right: 12px;
     bottom: 72px;
-    width: min(380px, calc(100vw - 24px));
+    width: min(390px, calc(100vw - 24px));
     max-height: calc(100vh - 96px);
     overflow: auto;
     background: rgba(255,255,255,.94);
@@ -114,7 +107,7 @@
     margin-bottom: 6px;
   }
   .control output {
-    min-width: 74px;
+    min-width: 82px;
     text-align: right;
     color: #8b7970;
     font-weight: 850;
@@ -140,34 +133,41 @@
 </head>
 <body>
 <canvas id="game"></canvas>
+
 <div class="hud">
   <div class="scoreCard"><small>BEST HEIGHT</small><b id="cm">0.0</b><span>cm</span></div>
 </div>
+
 <button class="gear" id="gearBtn" aria-label="開啟設定">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="12" cy="12" r="3.2"></circle>
     <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 1 1-2.83 2.83l-.04-.04a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.07a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.07A1.7 1.7 0 0 0 4.6 8a1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 9 3.6a1.7 1.7 0 0 0 1-1.53V2a2 2 0 1 1 4 0v.07A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04A1.7 1.7 0 0 0 19.4 8a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.07A1.7 1.7 0 0 0 19.4 15Z"></path>
   </svg>
 </button>
+
 <div class="panel" id="panel">
   <h3>後台設定</h3>
 
-  <div class="control"><label><span>左右鍋子水平距離</span><output id="gapXCmVal"></output></label><input id="gapXCm" type="range" min="16" max="60" step="0.5" value="29.2"></div>
-  <div class="control"><label><span>每階高度差</span><output id="gapYCmVal"></output></label><input id="gapYCm" type="range" min="8" max="35" step="0.5" value="17.7"></div>
-  <div class="control"><label><span>每階加寬距離</span><output id="spreadCmVal"></output></label><input id="spreadCm" type="range" min="0" max="4" step="0.1" value="1.4"></div>
-  <div class="control"><label><span>初始鍋子角度</span><output id="restAngleVal"></output></label><input id="restAngle" type="range" min="-25" max="0" step="1" value="-10"></div>
-  <div class="control"><label><span>抬起最大角度</span><output id="liftAngleVal"></output></label><input id="liftAngle" type="range" min="0" max="25" step="1" value="10"></div>
-  <div class="control"><label><span>抬鍋反應速度</span><output id="panSpeedVal"></output></label><input id="panSpeed" type="range" min="0.03" max="0.35" step="0.01" value="0.18"></div>
-  <div class="control"><label><span>拋起力度</span><output id="kickVal"></output></label><input id="kick" type="range" min="2" max="12" step="0.1" value="6.4"></div>
-  <div class="control"><label><span>重力</span><output id="gravityVal"></output></label><input id="gravity" type="range" min="0.10" max="0.60" step="0.01" value="0.28"></div>
+  <div class="control"><label><span>左右鍋子水平距離</span><output id="gapXCmVal"></output></label><input id="gapXCm" type="range" min="8" max="24" step="0.5" value="16"></div>
+  <div class="control"><label><span>每階高度差</span><output id="gapYCmVal"></output></label><input id="gapYCm" type="range" min="10" max="25" step="0.5" value="17.7"></div>
+  <div class="control"><label><span>每階加寬距離</span><output id="spreadCmVal"></output></label><input id="spreadCm" type="range" min="0" max="3" step="0.1" value="1.4"></div>
+  <div class="control"><label><span>垂下角度</span><output id="restAngleVal"></output></label><input id="restAngle" type="range" min="-30" max="30" step="1" value="12"></div>
+  <div class="control"><label><span>抬起角度</span><output id="liftAngleVal"></output></label><input id="liftAngle" type="range" min="-30" max="30" step="1" value="-12"></div>
+  <div class="control"><label><span>抬鍋反應速度</span><output id="panSpeedVal"></output></label><input id="panSpeed" type="range" min="0.04" max="0.32" step="0.01" value="0.17"></div>
+  <div class="control"><label><span>拋起力度</span><output id="kickVal"></output></label><input id="kick" type="range" min="2" max="12" step="0.1" value="6.2"></div>
+  <div class="control"><label><span>重力</span><output id="gravityVal"></output></label><input id="gravity" type="range" min="0.60" max="1.80" step="0.05" value="1.05"></div>
   <div class="control"><label><span>公分換算</span><output id="pxPerCmVal"></output></label><input id="pxPerCm" type="range" min="8" max="20" step="0.5" value="13"></div>
-  <div class="control"><label><span>培根柔軟度</span><output id="softnessVal"></output></label><input id="softness" type="range" min="0.15" max="0.95" step="0.05" value="0.50"></div>
-  <div class="control"><label><span>鍋子尺寸</span><output id="panScaleVal"></output></label><input id="panScale" type="range" min="0.60" max="1.40" step="0.05" value="1.00"></div>
-  <div class="control"><label><span>手尺寸</span><output id="handScaleVal"></output></label><input id="handScale" type="range" min="0.60" max="1.40" step="0.05" value="1.00"></div>
+  <div class="control"><label><span>培根柔軟度</span><output id="softnessVal"></output></label><input id="softness" type="range" min="0" max="0.85" step="0.05" value="0.18"></div>
+  <div class="control"><label><span>培根節點數</span><output id="baconSegmentsVal"></output></label><input id="baconSegments" type="range" min="6" max="12" step="1" value="8"></div>
+  <div class="control"><label><span>培根節點間距</span><output id="baconSpacingVal"></output></label><input id="baconSpacing" type="range" min="9" max="17" step="0.5" value="13"></div>
+  <div class="control"><label><span>鍋子尺寸</span><output id="panScaleVal"></output></label><input id="panScale" type="range" min="0.60" max="1.00" step="0.05" value="0.80"></div>
+  <div class="control"><label><span>手尺寸</span><output id="handScaleVal"></output></label><input id="handScale" type="range" min="0.60" max="1.00" step="0.05" value="0.80"></div>
 
   <button id="applyBtn">套用並重新開始</button>
-  <p class="hint">距離以公分設定，會依「公分換算」轉成畫面像素。距離、尺寸改完建議按套用。</p>
+  <p class="hint">角度邏輯：垂下角度 +12°，抬起角度 -12°。培根由節點與 constraint 組成；節點數少、間距大、柔軟度低會更硬。調整節點數或間距後請按套用。</p>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -176,12 +176,18 @@ const $ = id => document.getElementById(id);
 const HAND_GRIP_X = 35;
 const HAND_GRIP_Y = 60;
 const BASE_PAN_W = 190;
-const BASE_PAN_H = 22;
+const BASE_PAN_H = 24;
 
+let MatterRef = null;
+let Engine, World, Bodies, Body, Composite, Constraint, Vector;
+
+let engine, world;
 let W=0,H=0,CW=0,CH=0,playX=0,dpr=1;
-let settings={}, pans=[], bacon=null, cameraY=0, bestY=0, started=false, frame=0, activePanIndex=0;
+let settings={}, pans=[], baconBodies=[], baconConstraints=[], baconComposite=null;
+let cameraY=0, bestY=0, started=false, frame=0, activePanIndex=0;
 let inputHeld=false;
 let hand = {x:-260,targetX:70,y:0,retract:false};
+let lastTime = performance.now();
 
 const sliderDefs = [
   ['gapXCm', v => `${Number(v).toFixed(1)} cm`],
@@ -194,44 +200,45 @@ const sliderDefs = [
   ['gravity', v => Number(v).toFixed(2)],
   ['pxPerCm', v => `${Number(v).toFixed(1)} px/cm`],
   ['softness', v => Number(v).toFixed(2)],
+  ['baconSegments', v => `${Number(v).toFixed(0)} 個`],
+  ['baconSpacing', v => `${Number(v).toFixed(1)} px`],
   ['panScale', v => `${Math.round(Number(v)*100)}%`],
   ['handScale', v => `${Math.round(Number(v)*100)}%`]
 ];
+
+function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function num(id, fallback){
+  const v = Number($(id).value);
+  return Number.isFinite(v) ? v : fallback;
+}
 function updateSliderDisplays(){
   for(const [id, fmt] of sliderDefs){
     const out = $(id + 'Val');
     if(out) out.textContent = fmt($(id).value);
   }
 }
-function refreshPanSizes(){
-  if(!pans) return;
-  for(const p of pans){
-    p.w = BASE_PAN_W * settings.panScale;
-    p.h = BASE_PAN_H * settings.panScale;
-  }
-}
-function num(id, fallback){
-  const v = Number($(id).value);
-  return Number.isFinite(v) ? v : fallback;
-}
 function readSettings(){
   const pxPerCm = num('pxPerCm', 13);
   settings = {
-    gapX:num('gapXCm', 29.2) * pxPerCm,
+    gapX:num('gapXCm', 16) * pxPerCm,
     gapY:num('gapYCm', 17.7) * pxPerCm,
     spread:num('spreadCm', 1.4) * pxPerCm,
-    restAngle:num('restAngle', -10)*Math.PI/180,
-    liftAngle:num('liftAngle', 10)*Math.PI/180,
-    panSpeed:Math.max(0.03, Math.min(0.45, num('panSpeed', 0.18))),
-    kick:num('kick', 6.4),
-    gravity:num('gravity', 0.28),
+    restAngle:num('restAngle', 12)*Math.PI/180,
+    liftAngle:num('liftAngle', -12)*Math.PI/180,
+    panSpeed:clamp(num('panSpeed', 0.17), 0.03, 0.45),
+    kick:num('kick', 6.2),
+    gravity:num('gravity', 1.05),
     pxPerCm,
-    softness:Math.max(0.15, Math.min(0.95, num('softness', 0.50))),
-    panScale:Math.max(0.6, Math.min(1.4, num('panScale', 1))),
-    handScale:Math.max(0.6, Math.min(1.4, num('handScale', 1)))
+    softness:clamp(num('softness', 0.18), 0, 0.85),
+    baconSegments:Math.round(clamp(num('baconSegments', 8), 6, 12)),
+    baconSpacing:clamp(num('baconSpacing', 13), 9, 17),
+    panScale:clamp(num('panScale', 0.8), 0.6, 1.0),
+    handScale:clamp(num('handScale', 0.8), 0.6, 1.0)
   };
+  settings.baconScale = settings.panScale;
   updateSliderDisplays();
-  refreshPanSizes();
+  if(engine) engine.gravity.y = settings.gravity;
 }
 function resize(){
   dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
@@ -243,14 +250,46 @@ function resize(){
   canvas.height = CH*dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => {
+  resize();
+});
 
+function initMatter(){
+  MatterRef = window.Matter;
+  if(!MatterRef){
+    ctx.fillStyle = '#2f2f2f';
+    ctx.font = '16px sans-serif';
+    ctx.fillText('Matter.js 載入失敗，請確認網路或 CDN。', 20, 40);
+    return false;
+  }
+  ({Engine, World, Bodies, Body, Composite, Constraint, Vector} = MatterRef);
+  engine = Engine.create({ enableSleeping: false });
+  engine.positionIterations = 12;
+  engine.velocityIterations = 10;
+  engine.constraintIterations = 5;
+  world = engine.world;
+  engine.gravity.x = 0;
+  engine.gravity.y = settings.gravity;
+  engine.gravity.scale = 0.001;
+  return true;
+}
+
+function clearWorld(){
+  if(!world) return;
+  Composite.clear(world, false, true);
+  baconBodies=[];
+  baconConstraints=[];
+  baconComposite=null;
+}
 function reset(){
   readSettings();
   resize();
-  pans=[]; bacon=null; started=false; cameraY=0; bestY=0; frame=0; activePanIndex=0; inputHeld=false;
+  if(!engine && !initMatter()) return;
+  clearWorld();
+  pans=[]; started=false; cameraY=0; bestY=0; frame=0; activePanIndex=0; inputHeld=false;
   makePans();
   placeHandAtPan(0);
+  updatePanBodies();
   updateScore();
 }
 function makePans(){
@@ -258,6 +297,18 @@ function makePans(){
   for(let i=0;i<150;i++){
     const side=i%2===0?-1:1;
     const open=settings.gapX+i*settings.spread;
+    const w=BASE_PAN_W*settings.panScale;
+    const h=BASE_PAN_H*settings.panScale;
+    const body = Bodies.rectangle(0, 0, w*0.92, Math.max(9, h*0.48), {
+      isStatic: true,
+      friction: 0.025,
+      frictionStatic: 0,
+      restitution: 0.01,
+      slop: 0.01,
+      label: 'pan'
+    });
+    body.render.visible = false;
+    World.add(world, body);
     pans.push({
       x:centerX+side*open/2,
       y:baseY-i*settings.gapY,
@@ -265,10 +316,51 @@ function makePans(){
       lift:0,
       prevLift:0,
       liftVel:0,
-      w:BASE_PAN_W*settings.panScale,
-      h:BASE_PAN_H*settings.panScale,
+      w,h,body,
       hitMemory:0
     });
+  }
+}
+function panAngle(p){
+  // 角度邏輯：localAngle > 0 代表鍋面往下垂；localAngle < 0 代表往上抬。
+  // 左右鍋子用 side 鏡射，所以同一個 +12° 會讓兩邊都往下垂。
+  const localAngle = lerp(settings.restAngle, settings.liftAngle, p.lift);
+  return -p.side * localAngle;
+}
+function panJoint(p){
+  const joint = 10 * settings.panScale;
+  return { x: p.x + p.side * (p.w / 2 + joint), y: p.y };
+}
+function panDishCenter(p, angle){
+  const joint = panJoint(p);
+  const localX = -p.side * (p.w / 2 + 10 * settings.panScale);
+  const c=Math.cos(angle), s=Math.sin(angle);
+  return { x: joint.x + localX*c, y: joint.y + localX*s };
+}
+function panCollisionCenter(p, angle){
+  const dish = panDishCenter(p, angle);
+  const thickness = p.h * 0.82;
+  const topY = -thickness / 2;
+  const physH = Math.max(9, p.h * 0.48);
+  // Matter 的矩形碰撞中心往下放，讓碰撞上表面剛好對齊黑色鍋子的上緣。
+  // 碰撞體變厚後比較不會穿透，但培根仍會停在視覺鍋面上方。
+  const localY = topY + physH / 2;
+  const c=Math.cos(angle), s=Math.sin(angle);
+  return { x: dish.x - localY*s, y: dish.y + localY*c };
+}
+function worldToPanLocal(p, x, y){
+  const angle = panAngle(p);
+  const c=Math.cos(-angle), s=Math.sin(-angle);
+  const center = panDishCenter(p, angle);
+  const dx=x-center.x, dy=y-center.y;
+  return {x:dx*c-dy*s, y:dx*s+dy*c};
+}
+function updatePanBodies(){
+  for(const p of pans){
+    const angle = panAngle(p);
+    const c = panCollisionCenter(p, angle);
+    Body.setPosition(p.body, c);
+    Body.setAngle(p.body, angle);
   }
 }
 function placeHandAtPan(i){
@@ -279,20 +371,91 @@ function placeHandAtPan(i){
   const s = settings.handScale;
   hand.targetX = p.x - HAND_GRIP_X * s;
   hand.x = hand.targetX - 270 * s;
-  hand.y = p.y - Math.max(215, 285 * s);
+  hand.y = p.y - Math.max(180, 245 * s);
   hand.retract = false;
 }
+function removeBacon(){
+  if(baconComposite){
+    Composite.remove(world, baconComposite);
+  }
+  baconBodies=[];
+  baconConstraints=[];
+  baconComposite=null;
+}
 function spawnBacon(){
+  removeBacon();
   const s = settings.handScale;
-  const x = hand.x + HAND_GRIP_X * s, y = hand.y + HAND_GRIP_Y * s;
-  const segs=[]; const n=10; const spacing=11;
+  const b = settings.baconScale;
+  const x = hand.x + HAND_GRIP_X * s;
+  const y = hand.y + HAND_GRIP_Y * s;
+
+  const n = settings.baconSegments;
+  const radius = 6.2 * b;
+  const spacing = settings.baconSpacing * b;
+  const group = Body.nextGroup(true);
+  const soft = settings.softness;
+  // 柔軟度越低、節點越少、間距越大，看起來就越硬。
+  const adjacentStiff = lerp(0.995, 0.70, soft);
+  const bendStiff = lerp(0.88, 0.20, soft);
+  const longBendStiff = lerp(0.48, 0.08, soft);
+  const damping = lerp(0.14, 0.26, soft);
+
+  baconComposite = Composite.create({ label: 'bacon' });
+
   for(let i=0;i<n;i++){
     const t = i/(n-1);
-    const yy=y+i*spacing;
-    const xx=x+Math.sin(t*Math.PI*2.15)*4.4;
-    segs.push({x:xx,y:yy,px:xx-0.5,py:yy-0.2});
+    const bx = x + Math.sin(t*Math.PI*2.1)*3.2*b;
+    const by = y + i*spacing;
+    const body = Bodies.circle(bx, by, radius, {
+      label: 'bacon',
+      collisionFilter: { group },
+      friction: 0.035,
+      frictionStatic: 0,
+      frictionAir: 0.006,
+      restitution: 0.025,
+      slop: 0.01,
+      density: 0.0015
+    });
+    baconBodies.push(body);
+    Composite.add(baconComposite, body);
   }
-  bacon={segs, alive:true};
+
+  for(let i=0;i<n-1;i++){
+    const c = Constraint.create({
+      bodyA:baconBodies[i],
+      bodyB:baconBodies[i+1],
+      length:spacing,
+      stiffness:adjacentStiff,
+      damping
+    });
+    baconConstraints.push(c);
+    Composite.add(baconComposite, c);
+  }
+  for(let i=0;i<n-2;i++){
+    const c = Constraint.create({
+      bodyA:baconBodies[i],
+      bodyB:baconBodies[i+2],
+      length:spacing*2,
+      stiffness:bendStiff,
+      damping:damping*0.55
+    });
+    baconConstraints.push(c);
+    Composite.add(baconComposite, c);
+  }
+  // 多加一層長距離約束，讓培根比較像一整片，不會像鬆散的繩子。
+  for(let i=0;i<n-3;i++){
+    const c = Constraint.create({
+      bodyA:baconBodies[i],
+      bodyB:baconBodies[i+3],
+      length:spacing*3,
+      stiffness:longBendStiff,
+      damping:damping*0.38
+    });
+    baconConstraints.push(c);
+    Composite.add(baconComposite, c);
+  }
+
+  World.add(world, baconComposite);
   started=true;
   hand.retract=true;
 }
@@ -311,6 +474,7 @@ canvas.addEventListener('touchstart', e => e.preventDefault(), {passive:false});
 window.addEventListener('pointerup', pointerUp, {passive:false});
 window.addEventListener('pointercancel', pointerUp, {passive:false});
 window.addEventListener('gesturestart', e => e.preventDefault());
+
 $('gearBtn').onclick = e => { e.stopPropagation(); $('panel').classList.toggle('open'); };
 $('panel').addEventListener('pointerdown', e => e.stopPropagation());
 $('panel').addEventListener('pointerup', e => e.stopPropagation());
@@ -319,8 +483,81 @@ for(const [id] of sliderDefs){
   $(id).addEventListener('input', () => readSettings());
 }
 
-function update(){
+function getBaconCenter(){
+  if(!baconBodies.length) return {x:0,y:0};
+  let x=0,y=0;
+  for(const b of baconBodies){x+=b.position.x;y+=b.position.y;}
+  return {x:x/baconBodies.length,y:y/baconBodies.length};
+}
+function applyPanImpulses(){
+  if(!baconBodies.length) return;
+
+  for(let pi=0; pi<pans.length; pi++){
+    const p = pans[pi];
+    const liftUp = Math.max(0, p.liftVel);
+    if(liftUp <= 0.003) continue;
+
+    const angle = panAngle(p);
+    const physW = p.w * 0.92;
+    const thickness = p.h * 0.82;
+    const topY = -thickness / 2;
+    const physH = Math.max(9, p.h * 0.48);
+    const safeEdge = 12 * settings.panScale;
+    const hits = [];
+
+    for(const b of baconBodies){
+      const loc = worldToPanLocal(p, b.position.x, b.position.y);
+      const inX = loc.x > -physW/2 + safeEdge && loc.x < physW/2 - safeEdge;
+      const nearTop = loc.y > topY - 18*settings.baconScale && loc.y < topY + physH + 10*settings.baconScale;
+      if(inX && nearTop) hits.push(b);
+    }
+
+    if(hits.length < 2) continue;
+
+    activePanIndex = Math.max(activePanIndex, pi);
+
+    const normal = { x: Math.sin(angle), y: -Math.cos(angle) };
+    const tangent = { x: Math.cos(angle), y: Math.sin(angle) };
+    const targetDir = -p.side; // left pan => +x, right pan => -x
+    if(normal.x * targetDir < 0) normal.x *= -1;
+
+    const impulse = liftUp * settings.kick * 7.5;
+    const tangentImpulse = liftUp * settings.kick * 0.9 * targetDir;
+    const ivx = normal.x * impulse + tangent.x * tangentImpulse;
+    const ivy = normal.y * impulse + tangent.y * tangentImpulse;
+
+    for(const b of baconBodies){
+      Body.setVelocity(b, {
+        x: clamp(b.velocity.x + ivx*0.18, -18, 18),
+        y: clamp(b.velocity.y + ivy*0.18, -22, 22)
+      });
+    }
+    for(const b of hits){
+      Body.setVelocity(b, {
+        x: clamp(b.velocity.x + ivx*0.30, -18, 18),
+        y: clamp(b.velocity.y + ivy*0.30, -22, 22)
+      });
+    }
+
+    // 加入回旋力矩：往右拋時逆時針轉，往左拋時做對應的回旋。
+    // Matter 的圓形節點本身轉動看不出來，所以這裡用速度梯度讓整條培根真的翻轉。
+    const center = getBaconCenter();
+    const spin = -targetDir * liftUp * settings.kick * 0.095;
+    for(const b of baconBodies){
+      const dx = b.position.x - center.x;
+      const dy = b.position.y - center.y;
+      const svx = -spin * dy;
+      const svy =  spin * dx;
+      Body.setVelocity(b, {
+        x: clamp(b.velocity.x + svx, -18, 18),
+        y: clamp(b.velocity.y + svy, -22, 22)
+      });
+    }
+  }
+}
+function update(dt){
   frame++;
+
   const target=hand.retract?-305:hand.targetX;
   hand.x+=(target-hand.x)*.075;
 
@@ -331,182 +568,31 @@ function update(){
     p.liftVel = p.lift-p.prevLift;
     p.hitMemory *= .82;
   }
+  updatePanBodies();
 
-  if(bacon){
-    stepBacon();
-    collidePans(true);
-    constrainBacon();
-    collidePans(false);
+  applyPanImpulses();
 
+  // 分兩次小步進，減少培根高速撞鍋子時穿透的機率。
+  const substeps = 2;
+  for(let i=0; i<substeps; i++){
+    Engine.update(engine, dt / substeps);
+  }
+
+  if(baconBodies.length){
     const c=getBaconCenter();
     bestY=Math.min(bestY, c.y-H*.76);
     const targetCam=Math.min(0, c.y-H*.52);
     cameraY+=(targetCam-cameraY)*.08;
     updateScore();
+
     if(c.y-cameraY>H+170 || c.x<-260 || c.x>W+260) continueFromCurrentLevel();
   }
-}
-function stepBacon(){
-  for(const s of bacon.segs){
-    const vx=(s.x-s.px)*.992, vy=(s.y-s.py)*.992;
-    s.px=s.x; s.py=s.y;
-    s.x+=vx;
-    s.y+=vy+settings.gravity;
-  }
-}
-function constrainBacon(){
-  const segs = bacon.segs;
-  const rest = 9.8;
-  const rest2 = rest * 2;
-  const linkStiffness = 0.96;
-  const bendStiffness = 0.80 - settings.softness * 0.20;
-  const shapeBias = 0.07 + (1 - settings.softness) * 0.03;
-
-  for(let k=0;k<18;k++){
-    for(let i=0;i<segs.length-1;i++){
-      const a=segs[i], b=segs[i+1];
-      let dx=b.x-a.x, dy=b.y-a.y, d=Math.hypot(dx,dy)||1;
-      const diff=(d-rest)/d*linkStiffness;
-      const ox=dx*.5*diff, oy=dy*.5*diff;
-      a.x+=ox; a.y+=oy; b.x-=ox; b.y-=oy;
-    }
-    for(let i=0;i<segs.length-2;i++){
-      const a=segs[i], c=segs[i+2];
-      let dx=c.x-a.x, dy=c.y-a.y, d=Math.hypot(dx,dy)||1;
-      const diff=(d-rest2)/d*bendStiffness;
-      const ox=dx*.5*diff, oy=dy*.5*diff;
-      a.x+=ox; a.y+=oy; c.x-=ox; c.y-=oy;
-    }
-
-    const head = segs[0], tail = segs[segs.length-1];
-    const ax = tail.x - head.x, ay = tail.y - head.y;
-    const len = Math.hypot(ax, ay) || 1;
-    const nx = -ay / len, ny = ax / len;
-    for(let i=1;i<segs.length-1;i++){
-      const t = i / (segs.length - 1);
-      const wav = Math.sin(t * Math.PI * 2.05) * 3.1;
-      const targetX = head.x + ax * t + wav * nx;
-      const targetY = head.y + ay * t + wav * ny;
-      segs[i].x += (targetX - segs[i].x) * shapeBias;
-      segs[i].y += (targetY - segs[i].y) * shapeBias;
-    }
-  }
-}
-function panAngle(p){ return p.side*(settings.restAngle+(settings.liftAngle-settings.restAngle)*p.lift); }
-function panJoint(p){
-  const joint = 18 * settings.panScale;
-  return {
-    x: p.x + p.side * (p.w / 2 + joint),
-    y: p.y
-  };
-}
-function panLocalGeometry(p){
-  const joint = 18 * settings.panScale;
-  const thickness = p.h * 1.05;
-  return {
-    joint,
-    dishCx: -p.side * (p.w / 2 + joint),
-    topY: -thickness / 2,
-    bottomY: thickness / 2
-  };
-}
-function localToWorldFromJoint(joint, angle, lx, ly){
-  const c=Math.cos(angle), s=Math.sin(angle);
-  return {x:joint.x + lx*c - ly*s, y:joint.y + lx*s + ly*c};
-}
-function worldToLocalFromJoint(joint, angle, x, y){
-  const dx=x-joint.x, dy=y-joint.y;
-  const ca=Math.cos(-angle), sa=Math.sin(-angle);
-  return {x:dx*ca-dy*sa, y:dx*sa+dy*ca};
-}
-function collidePans(applyImpulse=true){
-  if(!bacon) return;
-
-  for(let pi=0; pi<pans.length; pi++){
-    const p=pans[pi];
-    const angle=panAngle(p);
-    const joint=panJoint(p);
-    const g=panLocalGeometry(p);
-    const leftX = g.dishCx - p.w/2;
-    const rightX = g.dishCx + p.w/2;
-    const topHits=[];
-
-    for(const s of bacon.segs){
-      const loc = worldToLocalFromJoint(joint, angle, s.x, s.y);
-      const prev = worldToLocalFromJoint(joint, angle, s.px, s.py);
-      const inX = loc.x > leftX && loc.x < rightX;
-      const insideBody = inX && loc.y > g.topY && loc.y < g.bottomY;
-      if(!insideBody) continue;
-
-      const vLocalX = loc.x - prev.x;
-      const vLocalY = loc.y - prev.y;
-      const cameFromBelow = prev.y >= g.bottomY - 1 || (loc.y > 0 && vLocalY < -0.12);
-
-      if(cameFromBelow){
-        // 撞到鍋底：推回下方，保留一點水平速度，並把向上速度反彈成向下。
-        const newY = g.bottomY + 1.4;
-        const bounceVY = Math.min(8, Math.abs(vLocalY) * 0.32 + 0.9);
-        const slideVX = vLocalX * 0.72;
-        const next = localToWorldFromJoint(joint, angle, loc.x, newY);
-        const prevWorld = localToWorldFromJoint(joint, angle, loc.x - slideVX, newY - bounceVY);
-        s.x = next.x;
-        s.y = next.y;
-        s.px = prevWorld.x;
-        s.py = prevWorld.y;
-        continue;
-      }
-
-      // 撞到鍋面上方：只修正到鍋面，不直接亂彈。
-      const newY = g.topY - 0.9;
-      const gravityAlongPan = settings.gravity * Math.sin(angle);
-      let slideVX = vLocalX * 0.985 + gravityAlongPan * 0.42;
-
-      // 靜止在鍋上時給一點沿斜面的滑動，避免像黏住。
-      if(Math.abs(slideVX) < 0.08 && Math.abs(angle) > 0.03){
-        slideVX += Math.sign(Math.sin(angle)) * 0.08;
-      }
-
-      const normalVY = Math.min(0, vLocalY) * 0.08;
-      const next = localToWorldFromJoint(joint, angle, loc.x, newY);
-      const prevWorld = localToWorldFromJoint(joint, angle, loc.x - slideVX, newY - normalVY);
-      s.x = next.x;
-      s.y = next.y;
-      s.px = prevWorld.x;
-      s.py = prevWorld.y;
-      topHits.push(s);
-    }
-
-    if(topHits.length>0){
-      activePanIndex=Math.max(activePanIndex, pi);
-      p.hitMemory = Math.min(1, p.hitMemory + topHits.length*.12);
-    }
-
-    if(applyImpulse && topHits.length>0){
-      const liftUp = Math.max(0, p.liftVel);
-      if(liftUp > 0.002){
-        const contactScale = Math.min(1, 2.4 / topHits.length);
-        const upwardVel = liftUp * settings.kick * 24 * contactScale;
-        const horizontalVel = -p.side * liftUp * settings.kick * 6.5 * contactScale;
-
-        for(const s of topHits){
-          // Verlet: 速度 = 現在位置 - 上一幀位置，所以要用「上一幀位置」反向加入速度。
-          s.px -= horizontalVel;
-          s.py += upwardVel;
-        }
-      }
-    }
-  }
-}
-function getBaconCenter(){
-  let x=0,y=0;
-  for(const s of bacon.segs){x+=s.x;y+=s.y;}
-  return {x:x/bacon.segs.length,y:y/bacon.segs.length};
 }
 function continueFromCurrentLevel(){
   let idx=activePanIndex;
   if(pans[idx] && pans[idx].side===1) idx=Math.max(0, idx-1);
   while(idx>0 && pans[idx].side!==-1) idx--;
-  bacon=null;
+  removeBacon();
   started=false;
   inputHeld=false;
   placeHandAtPan(idx);
@@ -525,7 +611,7 @@ function draw(){
   drawGuideLine();
   for(const p of pans) if(p.y-cameraY>-160 && p.y-cameraY<H+180) drawPan(p);
   if(!started) drawHand();
-  if(bacon) drawBacon();
+  if(baconBodies.length) drawBacon();
   ctx.restore();
   drawPlayAreaShade();
 }
@@ -562,37 +648,38 @@ function drawGuideLine(){
 function drawPan(p){
   const angle=panAngle(p);
   const joint=panJoint(p);
-  const g=panLocalGeometry(p);
+  const c=Math.cos(angle), s=Math.sin(angle);
 
   ctx.save();
   ctx.translate(joint.x,joint.y);
   ctx.rotate(angle);
 
   const topW = p.w;
-  const bottomW = p.w * 0.72;
-  const topY = g.topY;
-  const bottomY = g.bottomY;
-  const handleLen = 122 * settings.panScale;
-  const handleH = 10 * settings.panScale;
-  const handleY = topY + 1 * settings.panScale;
-  const leftX = g.dishCx - topW/2;
-  const rightX = g.dishCx + topW/2;
+  const bottomW = p.w * 0.90;
+  const thickness = p.h * 0.82;
+  const topY = -thickness/2;
+  const bottomY = thickness/2;
+  const localCx = -p.side*(p.w/2 + 10*settings.panScale);
+  const leftX = localCx - topW/2;
+  const rightX = localCx + topW/2;
+  const handleLen = 124 * settings.panScale;
+  const handleH = 9 * settings.panScale;
+  const handleY = topY + 1.3 * settings.panScale;
+  const overlap = 5 * settings.panScale;
 
-  // 握把整段金色，並且直接接到鍋身側邊。
   ctx.fillStyle = '#d6a04a';
   if (p.side === -1) {
-    ctx.fillRect(leftX - handleLen, handleY, handleLen, handleH);
+    ctx.fillRect(leftX - handleLen, handleY, handleLen + overlap, handleH);
   } else {
-    ctx.fillRect(rightX, handleY, handleLen, handleH);
+    ctx.fillRect(rightX - overlap, handleY, handleLen + overlap, handleH);
   }
 
-  // 參考圖風格：簡單黑色平面梯形，無圓角、無高光。
   ctx.fillStyle = '#303030';
   ctx.beginPath();
-  ctx.moveTo(g.dishCx - topW/2, topY);
-  ctx.lineTo(g.dishCx + topW/2, topY);
-  ctx.lineTo(g.dishCx + bottomW/2, bottomY);
-  ctx.lineTo(g.dishCx - bottomW/2, bottomY);
+  ctx.moveTo(leftX, topY);
+  ctx.lineTo(rightX, topY);
+  ctx.lineTo(localCx + bottomW/2, bottomY);
+  ctx.lineTo(localCx - bottomW/2, bottomY);
   ctx.closePath();
   ctx.fill();
 
@@ -602,17 +689,6 @@ function drawHand(){
   ctx.save();
   ctx.translate(hand.x,hand.y);
   ctx.scale(settings.handScale, settings.handScale);
-
-  ctx.fillStyle = '#f5b597';
-  ctx.fillRect(-180, -5, 180, 26);
-
-  ctx.fillStyle = '#303030';
-  ctx.beginPath();
-  ctx.moveTo(-180, -10);
-  ctx.lineTo(-80, -5);
-  ctx.lineTo(-80, 26);
-  ctx.lineTo(-180, 21);
-  ctx.fill();
 
   ctx.fillStyle = '#f5b597';
   ctx.beginPath();
@@ -630,23 +706,33 @@ function drawHand(){
   ctx.closePath();
   ctx.fill();
 
-  drawHeldBacon(HAND_GRIP_X, HAND_GRIP_Y);
+  ctx.fillStyle = '#f5b597';
+  ctx.fillRect(-180, -5, 194, 26);
 
+  drawHeldBacon(HAND_GRIP_X, HAND_GRIP_Y);
   ctx.restore();
 }
 function drawHeldBacon(x,y){
+  const b = settings.baconScale;
+  const n = settings.baconSegments;
+  const spacing = settings.baconSpacing * b;
+
   ctx.save();
   ctx.translate(x,y);
   ctx.rotate(-0.1);
-  ctx.lineCap='round';
+  ctx.lineCap='butt';
   ctx.lineJoin='round';
+
+  // 手上拿著的培根長度、節點數、間距與掉下來後完全一致。
   for(let strip=0; strip<2; strip++){
-    ctx.lineWidth=12;
+    ctx.lineWidth=13 * b;
     ctx.strokeStyle=strip?'#f7ddd3':'#df8480';
     ctx.beginPath();
-    for(let i=0;i<6;i++){
-      const px=(strip?5.3:-5.3)+Math.sin(i*.58+strip*.8)*1.7;
-      const py=i*13;
+    for(let i=0;i<n;i++){
+      const t = n <= 1 ? 0 : i / (n - 1);
+      const centerX = Math.sin(t * Math.PI * 2.1) * 3.2 * b;
+      const px = centerX + (strip ? 5.4 : -5.4) * b;
+      const py = i * spacing;
       if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
     }
     ctx.stroke();
@@ -654,29 +740,45 @@ function drawHeldBacon(x,y){
   ctx.restore();
 }
 function drawBacon(){
-  const segs=bacon.segs;
+  if(!baconBodies.length) return;
+  const b = settings.baconScale;
   for(let strip=0; strip<2; strip++){
-    ctx.lineWidth=13;
-    ctx.lineCap='round';
+    ctx.lineWidth=13*b;
+    ctx.lineCap='butt';
     ctx.lineJoin='round';
     ctx.strokeStyle=strip?'#f7ddd3':'#df8480';
     ctx.beginPath();
-    for(let i=0;i<segs.length;i++){
-      const s=segs[i];
+    for(let i=0;i<baconBodies.length;i++){
+      const pos = baconBodies[i].position;
       let nx=0, ny=0;
-      if(i<segs.length-1){ const n=segs[i+1]; nx=n.y-s.y; ny=-(n.x-s.x); }
-      else { const n=segs[i-1]; nx=s.y-n.y; ny=-(s.x-n.x); }
+      if(i<baconBodies.length-1){
+        const n=baconBodies[i+1].position;
+        nx=n.y-pos.y; ny=-(n.x-pos.x);
+      } else {
+        const n=baconBodies[i-1].position;
+        nx=pos.y-n.y; ny=-(pos.x-n.x);
+      }
       const l=Math.hypot(nx,ny)||1; nx/=l; ny/=l;
-      const offset = strip ? 5.4 : -5.4;
-      const x=s.x+nx*offset, y=s.y+ny*offset;
+      const offset = (strip ? 5.4 : -5.4) * b;
+      const x=pos.x+nx*offset, y=pos.y+ny*offset;
       if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     }
     ctx.stroke();
   }
 }
-function loop(){ update(); draw(); requestAnimationFrame(loop); }
+function loop(t){
+  const dt = clamp(t-lastTime, 12, 33);
+  lastTime = t;
+  if(engine) update(1000/60);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+readSettings();
+resize();
+initMatter();
 reset();
-loop();
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
