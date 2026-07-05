@@ -161,7 +161,7 @@
   <div class="control"><label><span>碰撞層長度</span><output id="collisionLengthVal"></output></label><input id="collisionLength" type="range" min="1.00" max="1.80" step="0.05" value="1.05"></div>
   <div class="control"><label><span>垂下角度</span><output id="restAngleVal"></output></label><input id="restAngle" type="range" min="-30" max="30" step="1" value="12"></div>
   <div class="control"><label><span>抬起角度</span><output id="liftAngleVal"></output></label><input id="liftAngle" type="range" min="-30" max="30" step="1" value="-12"></div>
-  <div class="control"><label><span>抬鍋反應速度</span><output id="panSpeedVal"></output></label><input id="panSpeed" type="range" min="0.04" max="0.32" step="0.01" value="0.15"></div>
+  <div class="control"><label><span>抬鍋反應速度</span><output id="panSpeedVal"></output></label><input id="panSpeed" type="range" min="0.04" max="3.00" step="0.01" value="0.15"></div>
 
   <div class="sectionTitle">培根 / 物理</div>
   <div class="control"><label><span>培根尺寸</span><output id="baconScaleVal"></output></label><input id="baconScale" type="range" min="0.50" max="1.20" step="0.05" value="0.80"></div>
@@ -177,7 +177,7 @@
   <div class="control"><label><span>手尺寸</span><output id="handScaleVal"></output></label><input id="handScale" type="range" min="0.60" max="1.00" step="0.05" value="0.80"></div>
 
   <button id="applyBtn">套用並重新開始</button>
-  <p class="hint">角度邏輯：垂下角度 +12°，抬起角度 -12°。目前預先生成 20 個鍋子。碰撞層長度可大於視覺鍋子，能減少邊緣穿透；太大會有隱形支撐感。鍋面滑度調低會增加摩擦與切向阻尼，調高才會明顯沿斜面加速。</p>
+  <p class="hint">角度邏輯：垂下角度 +12°，抬起角度 -12°。目前預先生成 20 個鍋子。碰撞層長度可大於視覺鍋子，能減少邊緣穿透；太大會有隱形支撐感。抬鍋反應速度可調到 3，2~3 會非常接近瞬間抬起；鍋面滑度調低會增加摩擦與切向阻尼，調高才會明顯沿斜面加速。</p>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
@@ -227,6 +227,35 @@ const sliderDefs = [
   ['handScale', v => `${Math.round(Number(v)*100)}%`]
 ];
 
+const STORAGE_KEY = 'baconTrainerSettingsV1';
+
+function saveSettings(){
+  try{
+    const data = {};
+    for(const [id] of sliderDefs){
+      const el = $(id);
+      if(el) data[id] = el.value;
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }catch(err){
+    // localStorage 可能在某些隱私模式被瀏覽器阻擋，遊戲仍可正常玩。
+  }
+}
+
+function loadSavedSettings(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    for(const [id] of sliderDefs){
+      const el = $(id);
+      if(el && data[id] !== undefined) el.value = data[id];
+    }
+  }catch(err){
+    localStorage.removeItem(STORAGE_KEY);
+  }
+}
+
 function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
 function lerp(a,b,t){ return a+(b-a)*t; }
 function num(id, fallback){
@@ -251,7 +280,7 @@ function readSettings(){
     collisionLength:clamp(num('collisionLength', 1.05), 1.00, 1.80),
     restAngle:num('restAngle', 12)*Math.PI/180,
     liftAngle:num('liftAngle', -12)*Math.PI/180,
-    panSpeed:clamp(num('panSpeed', 0.15), 0.03, 0.45),
+    panSpeed:clamp(num('panSpeed', 0.15), 0.03, 3.00),
     baconScale:clamp(num('baconScale', 0.80), 0.50, 1.20),
     stiffness:clamp(num('stiffness', 1.00), 0.40, 1.60),
     baconSegments:Math.round(clamp(num('baconSegments', 8), 6, 12)),
@@ -508,9 +537,15 @@ window.addEventListener('gesturestart', e => e.preventDefault());
 $('gearBtn').onclick = e => { e.stopPropagation(); $('panel').classList.toggle('open'); };
 $('panel').addEventListener('pointerdown', e => e.stopPropagation());
 $('panel').addEventListener('pointerup', e => e.stopPropagation());
-$('applyBtn').onclick = reset;
+$('applyBtn').onclick = () => {
+  saveSettings();
+  reset();
+};
 for(const [id] of sliderDefs){
-  $(id).addEventListener('input', () => readSettings());
+  $(id).addEventListener('input', () => {
+    readSettings();
+    saveSettings();
+  });
 }
 
 function getBaconCenter(){
@@ -635,9 +670,12 @@ function update(dt){
   hand.x+=(target-hand.x)*.075;
 
   const targetLift=inputHeld?1:0;
+  // panSpeed 現在可調到 3，但不能直接當 lerp 係數，否則 >1 會過衝震盪。
+  // 這裡轉成 0~1 的反應係數：0.15 約等於舊版速度，2~3 會接近瞬間抬起。
+  const panResponse = clamp(1 - Math.exp(-settings.panSpeed), 0.01, 0.96);
   for(const p of pans){
     p.prevLift=p.lift;
-    p.lift += (targetLift-p.lift)*settings.panSpeed;
+    p.lift += (targetLift-p.lift)*panResponse;
     p.liftVel = p.lift-p.prevLift;
     p.hitMemory *= .82;
   }
@@ -847,6 +885,7 @@ function loop(t){
   requestAnimationFrame(loop);
 }
 
+loadSavedSettings();
 readSettings();
 resize();
 initMatter();
