@@ -8,7 +8,12 @@
 <meta name="apple-mobile-web-app-title" content="Bacon Trainer" />
 <title>Bacon Trainer</title>
 <style>
-  * { box-sizing: border-box; }
+  * {
+    box-sizing: border-box;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
   html, body {
     margin: 0;
     width: 100%;
@@ -16,6 +21,12 @@
     overflow: hidden;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: #f7ded8;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+    overscroll-behavior: none;
   }
   canvas {
     display: block;
@@ -23,6 +34,9 @@
     height: 100vh;
     touch-action: none;
     cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
   .hud {
     position: fixed;
@@ -88,7 +102,7 @@
     z-index: 5;
   }
   .panel.open { transform: translateY(0); opacity: 1; pointer-events: auto; }
-  .panel h3 { margin: 0 0 12px; font-size: 16px; color: #554943; user-select: none; }
+  .panel h3 { margin: 0 0 12px; font-size: 16px; color: #554943; }
   .control { margin: 10px 0 12px; color: #5c504b; }
   .control label {
     display: flex;
@@ -271,24 +285,32 @@ function placeHandAtPan(i){
 function spawnBacon(){
   const s = settings.handScale;
   const x = hand.x + HAND_GRIP_X * s, y = hand.y + HAND_GRIP_Y * s;
-  const segs=[]; const n=8; const spacing=14;
+  const segs=[]; const n=10; const spacing=11;
   for(let i=0;i<n;i++){
+    const t = i/(n-1);
     const yy=y+i*spacing;
-    const xx=x+Math.sin(i*.85)*6;
-    segs.push({x:xx,y:yy,px:xx-0.7,py:yy-0.3});
+    const xx=x+Math.sin(t*Math.PI*2.15)*4.4;
+    segs.push({x:xx,y:yy,px:xx-0.5,py:yy-0.2});
   }
   bacon={segs, alive:true};
   started=true;
   hand.retract=true;
 }
 function pointerDown(e){
+  e.preventDefault();
   inputHeld=true;
   if(!started) spawnBacon();
 }
-function pointerUp(){ inputHeld=false; }
-canvas.addEventListener('pointerdown', pointerDown);
-window.addEventListener('pointerup', pointerUp);
-window.addEventListener('pointercancel', pointerUp);
+function pointerUp(e){
+  if(e) e.preventDefault();
+  inputHeld=false;
+}
+canvas.addEventListener('pointerdown', pointerDown, {passive:false});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('touchstart', e => e.preventDefault(), {passive:false});
+window.addEventListener('pointerup', pointerUp, {passive:false});
+window.addEventListener('pointercancel', pointerUp, {passive:false});
+window.addEventListener('gesturestart', e => e.preventDefault());
 $('gearBtn').onclick = e => { e.stopPropagation(); $('panel').classList.toggle('open'); };
 $('panel').addEventListener('pointerdown', e => e.stopPropagation());
 $('panel').addEventListener('pointerup', e => e.stopPropagation());
@@ -333,14 +355,40 @@ function stepBacon(){
   }
 }
 function constrainBacon(){
-  const segs=bacon.segs, rest=13;
-  for(let k=0;k<9;k++){
+  const segs = bacon.segs;
+  const rest = 9.8;
+  const rest2 = rest * 2;
+  const linkStiffness = 0.96;
+  const bendStiffness = 0.80 - settings.softness * 0.20;
+  const shapeBias = 0.07 + (1 - settings.softness) * 0.03;
+
+  for(let k=0;k<18;k++){
     for(let i=0;i<segs.length-1;i++){
       const a=segs[i], b=segs[i+1];
       let dx=b.x-a.x, dy=b.y-a.y, d=Math.hypot(dx,dy)||1;
-      const diff=(d-rest)/d*settings.softness;
+      const diff=(d-rest)/d*linkStiffness;
       const ox=dx*.5*diff, oy=dy*.5*diff;
       a.x+=ox; a.y+=oy; b.x-=ox; b.y-=oy;
+    }
+    for(let i=0;i<segs.length-2;i++){
+      const a=segs[i], c=segs[i+2];
+      let dx=c.x-a.x, dy=c.y-a.y, d=Math.hypot(dx,dy)||1;
+      const diff=(d-rest2)/d*bendStiffness;
+      const ox=dx*.5*diff, oy=dy*.5*diff;
+      a.x+=ox; a.y+=oy; c.x-=ox; c.y-=oy;
+    }
+
+    const head = segs[0], tail = segs[segs.length-1];
+    const ax = tail.x - head.x, ay = tail.y - head.y;
+    const len = Math.hypot(ax, ay) || 1;
+    const nx = -ay / len, ny = ax / len;
+    for(let i=1;i<segs.length-1;i++){
+      const t = i / (segs.length - 1);
+      const wav = Math.sin(t * Math.PI * 2.05) * 3.1;
+      const targetX = head.x + ax * t + wav * nx;
+      const targetY = head.y + ay * t + wav * ny;
+      segs[i].x += (targetX - segs[i].x) * shapeBias;
+      segs[i].y += (targetY - segs[i].y) * shapeBias;
     }
   }
 }
@@ -354,8 +402,8 @@ function collidePans(applyImpulse=true){
 
   for(let pi=0; pi<pans.length; pi++){
     const p=pans[pi], angle=panAngle(p), ca=Math.cos(-angle), sa=Math.sin(-angle);
-    const topY = -p.h/2;
-    const bottomY = p.h/2;
+    const topY = -p.h*0.50;
+    const bottomY = p.h*0.50;
     const topHits=[];
 
     for(const s of bacon.segs){
@@ -372,10 +420,9 @@ function collidePans(applyImpulse=true){
       const cameFromAbove = ply <= topY + 1 || !cameFromBelow;
 
       if(cameFromBelow){
-        // 撞到鍋子底部：推回鍋子下方，並把向上的速度反彈成向下，不給抬鍋衝量。
-        const next = localToWorld(p, angle, lx, bottomY + 1.2);
-        const bounce = Math.min(9, Math.abs(localVy)*0.35 + 1.1);
-        const prev = localToWorld(p, angle, plx, bottomY + 1.2 - bounce);
+        const next = localToWorld(p, angle, lx, bottomY + 1.6);
+        const bounce = Math.min(9, Math.abs(localVy)*0.35 + 1.25);
+        const prev = localToWorld(p, angle, plx, bottomY + 1.6 - bounce);
         s.x = next.x;
         s.y = next.y;
         s.px = prev.x;
@@ -384,7 +431,7 @@ function collidePans(applyImpulse=true){
       }
 
       if(cameFromAbove){
-        const next = localToWorld(p, angle, lx, topY - 0.8);
+        const next = localToWorld(p, angle, lx, topY - 0.9);
         s.x = next.x;
         s.y = next.y;
         topHits.push(s);
@@ -398,7 +445,7 @@ function collidePans(applyImpulse=true){
 
     if(applyImpulse && topHits.length>0){
       const liftUp = Math.max(0, p.liftVel);
-      const contactScale = Math.min(1, 2.5 / topHits.length);
+      const contactScale = Math.min(1, 2.8 / topHits.length);
       const upwardVel = liftUp * settings.kick * 34 * contactScale;
       const sideVel = p.side * liftUp * settings.kick * 10 * contactScale;
       const settle = Math.max(0, p.lift) * 0.16;
@@ -464,8 +511,27 @@ function drawPlayAreaShade(){
   ctx.fillRect(playX,0,W,H);
 }
 function drawGuideLine(){
+  const guideWorldY = H * 0.76 + bestY;
   ctx.fillStyle='rgba(255,255,255,.88)';
-  for(let x=0;x<W;x+=22){ ctx.beginPath(); ctx.arc(x,H*.43,2.6,0,Math.PI*2); ctx.fill(); }
+  for(let x=0;x<W;x+=22){
+    ctx.beginPath();
+    ctx.arc(x, guideWorldY, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+function roundedTrapezoidPath(ctx, topW, bottomW, topY, bottomY, radius){
+  const r = Math.max(0, Math.min(radius, (topW-bottomW)/2, (bottomY-topY)/2));
+  ctx.beginPath();
+  ctx.moveTo(-topW/2 + r, topY);
+  ctx.lineTo(topW/2 - r, topY);
+  ctx.quadraticCurveTo(topW/2, topY, topW/2 - r*0.25, topY + r*0.95);
+  ctx.lineTo(bottomW/2 + r*0.12, bottomY - r*0.95);
+  ctx.quadraticCurveTo(bottomW/2, bottomY, bottomW/2 - r, bottomY);
+  ctx.lineTo(-bottomW/2 + r, bottomY);
+  ctx.quadraticCurveTo(-bottomW/2, bottomY, -bottomW/2 - r*0.12, bottomY - r*0.95);
+  ctx.lineTo(-topW/2 + r*0.25, topY + r*0.95);
+  ctx.quadraticCurveTo(-topW/2, topY, -topW/2 + r, topY);
+  ctx.closePath();
 }
 function drawPan(p){
   const angle=panAngle(p);
@@ -474,32 +540,35 @@ function drawPan(p){
   ctx.rotate(angle);
 
   const topW = p.w;
-  const bottomW = p.w * 0.72;
-  const topY = -p.h/2;
-  const bottomY = p.h/2;
-  const handleLen = 90 * settings.panScale;
-  const gripLen = 30 * settings.panScale;
-  const handleH = 10 * settings.panScale;
+  const bottomW = p.w * 0.84;
+  const thickness = p.h * 1.75;
+  const topY = -thickness/2;
+  const bottomY = thickness/2;
+  const neckLen = 34 * settings.panScale;
+  const handleLen = 92 * settings.panScale;
+  const capLen = 16 * settings.panScale;
+  const handleH = 11 * settings.panScale;
+  const handleY = topY + thickness*0.18;
+  const radius = Math.max(8, 16 * settings.panScale);
 
   if (p.side === -1) {
-    ctx.fillStyle = '#303030';
-    ctx.fillRect(-topW/2 - handleLen, topY, handleLen, handleH);
     ctx.fillStyle = '#d6a04a';
-    ctx.fillRect(-topW/2 - handleLen - gripLen, topY, gripLen, handleH);
+    ctx.fillRect(-topW/2 - neckLen, handleY, neckLen, handleH);
+    ctx.fillStyle = '#303030';
+    ctx.fillRect(-topW/2 - neckLen - handleLen, handleY, handleLen, handleH);
+    ctx.fillStyle = '#d6a04a';
+    ctx.fillRect(-topW/2 - neckLen - handleLen - capLen, handleY, capLen, handleH);
   } else {
-    ctx.fillStyle = '#303030';
-    ctx.fillRect(topW/2, topY, handleLen, handleH);
     ctx.fillStyle = '#d6a04a';
-    ctx.fillRect(topW/2 + handleLen, topY, gripLen, handleH);
+    ctx.fillRect(topW/2, handleY, neckLen, handleH);
+    ctx.fillStyle = '#303030';
+    ctx.fillRect(topW/2 + neckLen, handleY, handleLen, handleH);
+    ctx.fillStyle = '#d6a04a';
+    ctx.fillRect(topW/2 + neckLen + handleLen, handleY, capLen, handleH);
   }
 
   ctx.fillStyle = '#303030';
-  ctx.beginPath();
-  ctx.moveTo(-topW/2, topY);
-  ctx.lineTo(topW/2, topY);
-  ctx.lineTo(bottomW/2, bottomY);
-  ctx.lineTo(-bottomW/2, bottomY);
-  ctx.closePath();
+  roundedTrapezoidPath(ctx, topW, bottomW, topY, bottomY, radius);
   ctx.fill();
 
   ctx.restore();
@@ -544,14 +613,15 @@ function drawHeldBacon(x,y){
   ctx.save();
   ctx.translate(x,y);
   ctx.rotate(-0.1);
-  ctx.lineCap='butt'; ctx.lineJoin='miter';
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
   for(let strip=0; strip<2; strip++){
     ctx.lineWidth=12;
     ctx.strokeStyle=strip?'#f7ddd3':'#df8480';
     ctx.beginPath();
-    for(let i=0;i<5;i++){
-      const px=(strip?6:-6)+Math.sin(i*.5+strip)*2;
-      const py=i*16;
+    for(let i=0;i<6;i++){
+      const px=(strip?5.3:-5.3)+Math.sin(i*.58+strip*.8)*1.7;
+      const py=i*13;
       if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
     }
     ctx.stroke();
@@ -561,7 +631,7 @@ function drawHeldBacon(x,y){
 function drawBacon(){
   const segs=bacon.segs;
   for(let strip=0; strip<2; strip++){
-    ctx.lineWidth=14;
+    ctx.lineWidth=13;
     ctx.lineCap='round';
     ctx.lineJoin='round';
     ctx.strokeStyle=strip?'#f7ddd3':'#df8480';
@@ -572,7 +642,7 @@ function drawBacon(){
       if(i<segs.length-1){ const n=segs[i+1]; nx=n.y-s.y; ny=-(n.x-s.x); }
       else { const n=segs[i-1]; nx=s.y-n.y; ny=-(s.x-n.x); }
       const l=Math.hypot(nx,ny)||1; nx/=l; ny/=l;
-      const offset = strip ? 6 : -6;
+      const offset = strip ? 5.4 : -5.4;
       const x=s.x+nx*offset, y=s.y+ny*offset;
       if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     }
