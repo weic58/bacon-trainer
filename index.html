@@ -216,6 +216,7 @@ let cameraY=0, bestY=0, started=false, frame=0, activePanIndex=0;
 let inputHeld=false;
 let hand = {x:-260,targetX:70,y:0,retract:false};
 let lastTime = performance.now();
+let fixedAccumulator = 0;
 
 const sliderDefs = [
   ['theme', v => v === 'spatula' ? '鍋鏟 / 荷包蛋' : '平底鍋 / 培根'],
@@ -598,17 +599,13 @@ function applyPanImpulses(){
     if(liftUp <= 0.0008 || Math.abs(p.angVel) <= 0.0006) continue;
 
     const angle = (typeof p.angle === 'number') ? p.angle : panAngle(p);
+    const joint = panJoint(p);
     const physW = p.w * settings.collisionLength;
     const thickness = p.h * 0.82;
     const topY = -thickness / 2;
     const physH = Math.max(9, p.h * 0.48);
     const safeEdge = 6 * settings.panScale;
     const hits = [];
-
-    const normal = { x: Math.sin(angle), y: -Math.cos(angle) };
-    const tangent = { x: Math.cos(angle), y: Math.sin(angle) };
-    const targetDir = -p.side;
-    if(normal.x * targetDir < 0) normal.x *= -1;
 
     for(const b of baconBodies){
       const loc = worldToPanLocal(p, b.position.x, b.position.y);
@@ -620,28 +617,48 @@ function applyPanImpulses(){
     if(hits.length < 1) continue;
     activePanIndex = Math.max(activePanIndex, pi);
 
-    const transfer = 0.88 + settings.kick * 0.085;
-    const tangentFollow = clamp(0.30 + settings.kick * 0.035, 0.25, 0.95);
+    // 正確的槓桿效果：用接觸點到轉軸距離 r 只決定「力道大小」。
+    // 方向以向上法向為主，水平只給少量導向，避免整片往前暴衝。
+    let normal = { x: Math.sin(angle), y: -Math.cos(angle) };
+    if(normal.y > 0){ normal.x *= -1; normal.y *= -1; }
+    const targetDir = -p.side;
+
+    const contactFactor = Math.min(1, hits.length / 2);
+    const angularSpeed = Math.abs(p.angVel);
 
     for(const hit of hits){
       const b = hit.body;
-      const pv = pointVelocityFromPan(p, b.position);
-      const bv = b.velocity;
-      const vnBody = bv.x * normal.x + bv.y * normal.y;
-      const vtBody = bv.x * tangent.x + bv.y * tangent.y;
-      const vnPan = Math.max(0, pv.x * normal.x + pv.y * normal.y) * transfer;
-      const vtPan = (pv.x * tangent.x + pv.y * tangent.y) * tangentFollow;
+      const dx = b.position.x - joint.x;
+      const dy = b.position.y - joint.y;
+      const r = Math.hypot(dx, dy);
+      const leverFactor = clamp(r / Math.max(1, p.w), 0.35, 1.35);
 
-      let newVN = vnBody;
-      if(vnPan > vnBody) newVN = vnPan;
-      let newVT = vtBody + (vtPan - vtBody) * 0.72;
+      // 大幅降低切向/水平補力，只讓 kick 明顯改變「上拋高度」。
+      const baseImpulse = angularSpeed * r * settings.kick * 1.35 * contactFactor * leverFactor;
+      const currentN = b.velocity.x * normal.x + b.velocity.y * normal.y;
+      const addN = Math.max(0, baseImpulse - currentN) * 0.46;
 
-      const distRatio = clamp(Math.hypot(b.position.x - panJoint(p).x, b.position.y - panJoint(p).y) / Math.max(1, p.w), 0.15, 1.6);
-      newVT += targetDir * settings.spinPower * 120 * distRatio * Math.max(0.2, liftUp * 20);
+      const horizontalAdd = targetDir * Math.min(2.4, baseImpulse * 0.10);
+      const newVx = b.velocity.x + normal.x * addN * 0.40 + horizontalAdd;
+      const newVy = b.velocity.y + normal.y * addN;
 
       Body.setVelocity(b, {
-        x: clamp(normal.x * newVN + tangent.x * newVT, -42, 42),
-        y: clamp(normal.y * newVN + tangent.y * newVT, -46, 46)
+        x: clamp(newVx, -18, 18),
+        y: clamp(newVy, -34, 34)
+      });
+    }
+
+    // 翻轉保留，但不再把水平速度拉高。
+    const center = getBaconCenter();
+    const spinBase = -targetDir * liftUp * settings.kick * settings.spinPower * 0.18;
+    for(const b of baconBodies){
+      const dx = b.position.x - center.x;
+      const dy = b.position.y - center.y;
+      const leverFactor = clamp(Math.hypot(b.position.x - joint.x, b.position.y - joint.y) / Math.max(1, p.w), 0.35, 1.35);
+      const spin = spinBase * leverFactor;
+      Body.setVelocity(b, {
+        x: clamp(b.velocity.x - spin * dy * 0.45, -18, 18),
+        y: clamp(b.velocity.y + spin * dx, -34, 34)
       });
     }
   }
@@ -816,56 +833,66 @@ function drawPan(p){
   const overlap = 5 * settings.panScale;
 
   if((settings.theme || 'pan') === 'spatula'){
-    // 依照參考圖把鍋鏟改成：長細手柄 -> 折角頸部 -> 短而平的鏟面。
-    const dir = -p.side; // 左邊器具朝右，右邊器具朝左
-    const bladeW = topW * 0.56;
-    const bladeH = Math.max(10, thickness * 0.54);
-    const neckDrop = 12 * settings.panScale;
-    const neckInset = 17 * settings.panScale;
-    const stemThick = Math.max(6, handleH * 0.9);
-    const startX = localCx - dir * (bladeW/2 + neckInset + handleLen);
-    const joinX = localCx - dir * (bladeW/2 + neckInset);
-    const bendX = localCx - dir * (bladeW/2 - 2 * settings.panScale);
-    const tipX = localCx + dir * (bladeW/2);
-    const stemTop = topY + 1.2 * settings.panScale;
-    const stemBottom = stemTop + stemThick;
-    const bladeTop = stemTop + neckDrop;
-    const bladeBottom = bladeTop + bladeH;
+    // 鍋鏟外觀改成接近參考圖：細長手柄、折角頸部、短平鏟面。
+    // 這裡只換外觀，底層碰撞仍沿用原本平面。
+    const dir = -p.side; // 左側器具朝右，右側器具朝左
+    const s = settings.panScale;
+    const strokeW = Math.max(7.5, 10.5 * s);
 
-    // 鍋鏟主體：淺灰色，輪廓盡量接近你給的參考圖。
-    ctx.fillStyle = '#aeb0b2';
-    ctx.beginPath();
-    if(dir > 0){
-      ctx.moveTo(startX, stemTop);
-      ctx.lineTo(joinX, stemTop);
-      ctx.lineTo(bendX, bladeTop);
-      ctx.lineTo(tipX, bladeTop + 3 * settings.panScale);
-      ctx.lineTo(tipX, bladeBottom);
-      ctx.lineTo(bendX + 4 * settings.panScale, bladeBottom - 2 * settings.panScale);
-      ctx.lineTo(joinX, stemBottom);
-      ctx.lineTo(startX, stemBottom);
-    }else{
-      ctx.moveTo(startX, stemTop);
-      ctx.lineTo(joinX, stemTop);
-      ctx.lineTo(bendX, bladeTop);
-      ctx.lineTo(tipX, bladeTop + 3 * settings.panScale);
-      ctx.lineTo(tipX, bladeBottom);
-      ctx.lineTo(bendX - 4 * settings.panScale, bladeBottom - 2 * settings.panScale);
-      ctx.lineTo(joinX, stemBottom);
-      ctx.lineTo(startX, stemBottom);
-    }
-    ctx.closePath();
-    ctx.fill();
+    const handleStartX = localCx - dir * (topW * 0.68);
+    const neckX       = localCx - dir * (topW * 0.18);
+    const bendX       = localCx - dir * (topW * 0.02);
+    const tipX        = localCx + dir * (topW * 0.44);
 
-    // 輕微高光，讓它看起來更像金屬鍋鏟，但維持簡約平面風格。
-    ctx.strokeStyle = 'rgba(255,255,255,.28)';
-    ctx.lineWidth = 1.6;
+    const y0 = topY - 3.0 * s;
+    const y1 = topY + 9.0 * s;
+    const y2 = topY + 27.0 * s;
+    const y3 = topY + 32.0 * s;
+
+    ctx.save();
+    ctx.lineCap = 'butt';
+    ctx.lineJoin = 'miter';
+    ctx.miterLimit = 3.2;
+
+    // 先畫暗邊，讓灰色剪影在藍綠背景上更清楚。
+    ctx.strokeStyle = 'rgba(65,72,75,.45)';
+    ctx.lineWidth = strokeW + 2.2 * s;
     ctx.beginPath();
-    ctx.moveTo(startX + dir * 8 * settings.panScale, stemTop + 1.2);
-    ctx.lineTo(joinX, stemTop + 1.2);
-    ctx.lineTo(bendX, bladeTop + 1.5);
-    ctx.lineTo(tipX - dir * 6 * settings.panScale, bladeTop + 4 * settings.panScale);
+    ctx.moveTo(handleStartX, y0);
+    ctx.lineTo(neckX, y1);
+    ctx.lineTo(bendX, y2);
+    ctx.lineTo(tipX, y3);
     ctx.stroke();
+
+    // 主體灰色剪影。
+    ctx.strokeStyle = '#aeb0b2';
+    ctx.lineWidth = strokeW;
+    ctx.beginPath();
+    ctx.moveTo(handleStartX, y0);
+    ctx.lineTo(neckX, y1);
+    ctx.lineTo(bendX, y2);
+    ctx.lineTo(tipX, y3);
+    ctx.stroke();
+
+    // 參考圖右端是平口，補一段稍微變扁的鏟面尾端。
+    const bladeExtra = 13 * s;
+    ctx.lineWidth = strokeW * 0.92;
+    ctx.beginPath();
+    ctx.moveTo(bendX, y2);
+    ctx.lineTo(tipX + dir * bladeExtra, y3 + 1.2 * s);
+    ctx.stroke();
+
+    // 很淡的高光，保留像素/簡約感。
+    ctx.strokeStyle = 'rgba(255,255,255,.22)';
+    ctx.lineWidth = Math.max(1, 1.6 * s);
+    ctx.beginPath();
+    ctx.moveTo(handleStartX + dir * 8 * s, y0 - 1.2 * s);
+    ctx.lineTo(neckX - dir * 2 * s, y1 - 1.2 * s);
+    ctx.lineTo(bendX - dir * 1 * s, y2 - 1.2 * s);
+    ctx.lineTo(tipX + dir * 5 * s, y3 - 1.2 * s);
+    ctx.stroke();
+
+    ctx.restore();
   }else{
     ctx.fillStyle = '#d6a04a';
     if (p.side === -1) {
@@ -1017,9 +1044,21 @@ function drawBacon(){
 }
 
 function loop(t){
-  const dt = clamp(t-lastTime, 12, 33);
+  // requestAnimationFrame 在電腦可能是 120/144Hz，手機常是 60Hz。
+  // 舊版每一幀都跑一次 60fps 物理，導致高刷新率螢幕遊戲加速。
+  // 這裡改成固定 60Hz 物理步進，不管螢幕刷新率多少，速度都一致。
+  const rawDt = Math.min(80, Math.max(0, t - lastTime));
   lastTime = t;
-  if(engine) update(1000/60);
+  fixedAccumulator += rawDt;
+
+  const STEP = 1000 / 60;
+  let guard = 0;
+  while(engine && fixedAccumulator >= STEP && guard < 5){
+    update(STEP);
+    fixedAccumulator -= STEP;
+    guard++;
+  }
+
   draw();
   requestAnimationFrame(loop);
 }
